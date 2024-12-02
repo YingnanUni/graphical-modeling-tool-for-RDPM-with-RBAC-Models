@@ -51,3 +51,61 @@ export const validateTaskChain = (taskProperties) => {
     message: errors.join("; "),
   };
 };
+
+// Add new validation functions
+export const validateTaskChainTopology = (tasks) => {
+  // Check for cycles
+  const visited = new Set();
+  const recursionStack = new Set();
+
+  const hasCycle = (taskId) => {
+    if (recursionStack.has(taskId)) return true;
+    if (visited.has(taskId)) return false;
+
+    visited.add(taskId);
+    recursionStack.add(taskId);
+
+    const nextTaskId = tasks[taskId].nextTaskId;
+    if (nextTaskId && hasCycle(nextTaskId)) {
+      return true;
+    }
+
+    recursionStack.delete(taskId);
+    return false;
+  };
+
+  // Validate each task
+  for (const taskId in tasks) {
+    if (hasCycle(taskId)) {
+      return {
+        isValid: false,
+        message: "Circular dependency detected in task chain",
+      };
+    }
+  }
+
+  return {
+    isValid: true,
+  };
+};
+
+// Add resource validation
+export const validateTaskResources = (task, resources) => {
+  const resource = resources.find((r) => r.id === task.resourceId);
+
+  if (!resource) {
+    return {
+      isValid: false,
+      message: `Invalid resource reference for task ${task.name}`,
+    };
+  }
+
+  if (resource.status === "occupied") {
+    return {
+      isValid: false,
+      message: `Resource ${resource.name} is currently occupied`,
+    };
+  }
+
+  return { isValid: true };
+};

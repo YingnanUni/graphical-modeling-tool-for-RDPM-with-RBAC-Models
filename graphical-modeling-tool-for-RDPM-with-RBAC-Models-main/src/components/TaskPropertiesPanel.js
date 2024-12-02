@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { Modal, Form, Input, Select, Space, Button } from "antd";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { Modal, Form, Input, Select, Space, Button, message, Tag } from "antd";
+import { validateNextTaskSelection } from "../utils/taskValidation";
 
 /**
  * TaskPropertiesPanel Component
@@ -27,6 +28,18 @@ const TaskPropertiesPanel = ({
   const [executionType, setExecutionType] = useState("sequential");
   const [triggerConditions, setTriggerConditions] = useState([]);
 
+  // Get available tasks for Next Task selection (excluding current task)
+  const availableNextTasks = useMemo(() => {
+    if (!selectedElement) return [];
+
+    return Object.entries(taskProperties)
+      .filter(([id]) => id !== selectedElement.id)
+      .map(([id, task]) => ({
+        value: id,
+        label: task.name || "Unnamed Task",
+      }));
+  }, [taskProperties, selectedElement]);
+
   // Update form values when selected element changes
   useEffect(() => {
     if (selectedElement?.businessObject) {
@@ -34,6 +47,7 @@ const TaskPropertiesPanel = ({
         name: selectedElement.businessObject.name,
         roleId: selectedElement.businessObject.roleId,
         resourceId: selectedElement.businessObject.resourceId,
+        nextTaskId: selectedElement.businessObject.nextTaskId,
       });
     }
   }, [selectedElement, form]);
@@ -68,6 +82,26 @@ const TaskPropertiesPanel = ({
     }
   };
 
+  // Get resource status for display
+  const getResourceStatus = useCallback(
+    (resourceId) => {
+      const resourceTasks = Object.values(taskProperties).filter(
+        (task) => task.resourceId === resourceId && task.status === "active"
+      );
+      return resourceTasks.length > 0 ? "occupied" : "available";
+    },
+    [taskProperties]
+  );
+
+  // Resource options with status
+  const resourceOptions = useMemo(() => {
+    return resources.map((resource) => ({
+      value: resource.id,
+      label: `${resource.name} (${getResourceStatus(resource.id)})`,
+      disabled: getResourceStatus(resource.id) === "occupied",
+    }));
+  }, [resources, getResourceStatus]);
+
   return (
     <Modal
       title="Edit Task Properties"
@@ -100,22 +134,20 @@ const TaskPropertiesPanel = ({
           name="resourceId"
           label="Resource"
           rules={[{ required: true }]}
+          tooltip="Select an available resource"
         >
           <Select
             placeholder="Select resource"
-            showSearch
-            optionFilterProp="children"
-          >
-            {resources.map((resource) => (
-              <Select.Option
-                key={resource.id}
-                value={resource.id}
-                disabled={resource.status === "Occupied"}
-              >
-                {resource.name} ({resource.status})
-              </Select.Option>
-            ))}
-          </Select>
+            options={resourceOptions}
+            optionRender={(option) => (
+              <Space>
+                <span>{option.label}</span>
+                <Tag color={option.data.disabled ? "red" : "green"}>
+                  {option.data.disabled ? "Occupied" : "Available"}
+                </Tag>
+              </Space>
+            )}
+          />
         </Form.Item>
 
         <Form.Item
@@ -163,6 +195,28 @@ const TaskPropertiesPanel = ({
               </Form.Item>
             ) : null;
           }}
+        </Form.Item>
+
+        {/* Add Next Task Selection */}
+        <Form.Item
+          name="nextTaskId"
+          label="Next Task"
+          tooltip="Select the task that should follow this one"
+        >
+          <Select
+            placeholder="Select next task"
+            allowClear
+            showSearch
+            optionFilterProp="children"
+          >
+            {Object.entries(taskProperties)
+              .filter(([id]) => id !== selectedElement?.id) // Exclude current task
+              .map(([id, task]) => (
+                <Select.Option key={id} value={id}>
+                  {task.name || "Unnamed Task"}
+                </Select.Option>
+              ))}
+          </Select>
         </Form.Item>
       </Form>
     </Modal>

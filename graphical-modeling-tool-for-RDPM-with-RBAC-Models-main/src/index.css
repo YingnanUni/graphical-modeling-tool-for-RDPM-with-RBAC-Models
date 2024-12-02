@@ -98,3 +98,19 @@ code {
 .djs-shape {
   pointer-events: all;
 }
+
+/* Real-time task chain table styles */
+.real-time-task-chain {
+  .ant-table-thead > tr > th {
+    background: #fafafa;
+    font-weight: 600;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 8px 16px;
+  }
+
+  .ant-badge {
+    margin-right: 8px;
+  }
+}

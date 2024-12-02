@@ -68,12 +68,90 @@ export default class CustomBpmnRenderer extends BaseRenderer {
         class: `status-${taskData.status || "pending"}`,
       });
 
+      // 添加状态背景
+      const statusColors = {
+        pending: "#fafafa",
+        running: "#e6f7ff",
+        completed: "#f6ffed",
+        failed: "#fff1f0",
+      };
+
+      const taskGroup = svgCreate("g", {
+        class: `task-group ${element.businessObject.group || ""}`,
+      });
+
+      const statusBg = svgCreate("rect", {
+        x: 0,
+        y: 0,
+        width: TASK_WIDTH,
+        height: TASK_HEIGHT,
+        rx: 5,
+        ry: 5,
+        fill: statusColors[element.businessObject.status || "pending"],
+      });
+
+      svgAppend(taskGroup, statusBg);
+
       // 按顺序添加元素
       svgAppend(parentNode, taskName);
       svgAppend(parentNode, statusIndicator);
+
+      // Add tooltip container
+      const tooltip = svgCreate("foreignObject", {
+        x: 0,
+        y: -30,
+        width: TASK_WIDTH,
+        height: 25,
+        class: "task-tooltip",
+        style: "display: none",
+      });
+
+      // Show tooltip on hover
+      parentNode.addEventListener("mouseenter", () => {
+        tooltip.style.display = "block";
+      });
+
+      parentNode.addEventListener("mouseleave", () => {
+        tooltip.style.display = "none";
+      });
+
+      // Add task info to tooltip
+      const tooltipContent = svgCreate("div", {
+        innerHTML: `
+          <div class="tooltip-content">
+            <p>Role: ${taskData.roleName}</p>
+            <p>Resource: ${taskData.resourceName}</p>
+            <p>Status: ${taskData.status}</p>
+          </div>
+        `,
+      });
+
+      svgAppend(tooltip, tooltipContent);
+      svgAppend(parentNode, tooltip);
     }
 
     return shape;
+  }
+
+  updateTaskDisplay(element) {
+    if (!element || element.type !== "bpmn:Task") return;
+
+    const parentNode = element.parent;
+    const taskData = element.businessObject;
+
+    // Update task name and status
+    const taskLabel = parentNode.querySelector(".task-label");
+    if (taskLabel) {
+      taskLabel.textContent = taskData.name || "Unnamed Task";
+    }
+
+    const statusIndicator = parentNode.querySelector("circle");
+    if (statusIndicator) {
+      statusIndicator.setAttribute(
+        "class",
+        `status-${taskData.status || "pending"}`
+      );
+    }
   }
 }
 

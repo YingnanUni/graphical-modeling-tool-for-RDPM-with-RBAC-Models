@@ -23,6 +23,7 @@ import {
   validateTaskOperation,
   validateTaskResources,
   validateTaskChainLogic,
+  validateTaskProperties,
 } from "../utils/taskValidation";
 
 // Define constants
@@ -58,7 +59,7 @@ const TASK_HEIGHT = 80;
 const SPACING = 60;
 
 const ChangePatternEditor = () => {
-  // 1. 状态声明
+  // 1. 状态声
   const [form] = Form.useForm();
   const [taskProperties, setTaskProperties] = useState({});
   const [selectedElement, setSelectedElement] = useState(null);
@@ -89,60 +90,74 @@ const ChangePatternEditor = () => {
   const [propertiesPanelVisible, setPropertiesPanelVisible] = useState(false);
 
   // 将这部分代码移到组件开始处，在状态声明之后
-  const handleTaskOperation = useCallback((operation, taskData) => {
-    // Validate operation
-    const validation = validateTaskOperation(
-      operation,
-      taskData,
-      taskProperties
-    );
-    if (!validation.isValid) {
-      message.error(validation.message);
-      return;
-    }
+  const handleTaskOperation = useCallback(
+    (operation, taskData) => {
+      // Validate operation
+      const validation = validateTaskOperation(
+        operation,
+        taskData,
+        taskProperties
+      );
+      if (!validation.isValid) {
+        message.error(validation.message);
+        return;
+      }
 
-    // Update task properties
-    setTaskProperties((prev) => {
-      const newProperties = { ...prev };
+      // Update task properties
+      setTaskProperties((prev) => {
+        const newProperties = { ...prev };
 
-      switch (operation) {
-        case "add":
-          newProperties[taskData.id] = {
-            ...taskData,
-            status: "pending",
-            createdAt: Date.now(),
-          };
-          break;
-
-        case "update":
-          if (newProperties[taskData.id]) {
+        switch (operation) {
+          case "add":
             newProperties[taskData.id] = {
-              ...newProperties[taskData.id],
               ...taskData,
+              status: "pending",
+              createdAt: Date.now(),
+              name:
+                taskData.name ||
+                `Task ${Object.keys(newProperties).length + 1}`,
+              type: taskData.type || "bpmn:Task",
             };
-          }
-          break;
+            break;
 
-        case "delete":
-          delete newProperties[taskData.id];
-          // Update connections
-          Object.values(newProperties).forEach((task) => {
-            if (task.nextTaskId === taskData.id) {
-              task.nextTaskId = taskData.nextTaskId;
+          case "update":
+            if (newProperties[taskData.id]) {
+              newProperties[taskData.id] = {
+                ...newProperties[taskData.id],
+                ...taskData,
+                updatedAt: Date.now(),
+              };
             }
-          });
-          break;
-      }
+            break;
 
-      // Validate task chain logic
-      const chainValidation = validateTaskChainLogic(newProperties);
-      if (!chainValidation.isValid) {
-        message.warning(chainValidation.message);
-      }
+          case "delete":
+            // Remove the task and update connections
+            delete newProperties[taskData.id];
+            Object.values(newProperties).forEach((task) => {
+              if (task.nextTaskId === taskData.id) {
+                task.nextTaskId = null;
+              }
+            });
 
-      return newProperties;
-    });
-  }, []);
+            // Update BPMN diagram
+            if (modelerRef.current) {
+              const elementRegistry = modelerRef.current.get("elementRegistry");
+              const modeling = modelerRef.current.get("modeling");
+              const element = elementRegistry.get(taskData.id);
+              if (element) {
+                modeling.removeElements([element]);
+              }
+            }
+            break;
+        }
+
+        // Notify previews of changes
+        updatePreviews(operation, taskData, newProperties);
+        return newProperties;
+      });
+    },
+    [modelerRef]
+  );
 
   // 替换原有的 handleSelection 函数
   const handleSelection = useCallback(
@@ -924,24 +939,77 @@ const ChangePatternEditor = () => {
     };
   }, [modelerRef]);
 
-  // Enhanced property change handler with validation
-  const handleTaskPropertyChange = useCallback(
-    (taskId, properties) => {
-      if (!modelerRef.current || !taskId) return;
+  // Handle task connection updates
+  const updateTaskConnection = useCallback(
+    (sourceId, targetId) => {
+      if (!modelerRef.current) return;
 
       const modeling = modelerRef.current.get("modeling");
       const elementRegistry = modelerRef.current.get("elementRegistry");
 
       try {
-        const element = elementRegistry.get(taskId);
-        if (!element) return;
+        // Get source and target elements
+        const sourceElement = elementRegistry.get(sourceId);
+        const targetElement = elementRegistry.get(targetId);
 
-        // Update BPMN element properties
+        if (!sourceElement || !targetElement) return;
+
+        // Remove existing connections from source
+        const connections = sourceElement.outgoing || [];
+        connections.forEach((connection) => {
+          modeling.removeConnection(connection);
+        });
+
+        // Create new connection if target is specified
+        if (targetId) {
+          modeling.connect(sourceElement, targetElement, {
+            type: "bpmn:SequenceFlow",
+          });
+        }
+
+        // Update task properties
+        handleTaskOperation("update", {
+          id: sourceId,
+          nextTaskId: targetId || null,
+        });
+      } catch (error) {
+        console.error("Error updating task connection:", error);
+        message.error("Failed to update task connection");
+      }
+    },
+    [modelerRef, handleTaskOperation]
+  );
+
+  // Update handleTaskPropertyChange to handle next task
+  const handleTaskPropertyChange = useCallback(
+    (taskId, properties) => {
+      if (!modelerRef.current || !taskId) return;
+
+      try {
+        // Update task properties
+        const validationResult = validateTaskProperties(
+          properties,
+          taskProperties
+        );
+        if (!validationResult.isValid) {
+          message.error(validationResult.message);
+          return;
+        }
+
+        // Update BPMN properties
+        const modeling = modelerRef.current.get("modeling");
+        const elementRegistry = modelerRef.current.get("elementRegistry");
+        const element = elementRegistry.get(taskId);
+
         modeling.updateProperties(element, {
           name: properties.name,
           roleId: properties.roleId,
           resourceId: properties.resourceId,
+          nextTaskId: properties.nextTaskId,
         });
+
+        // Update task connection if nextTaskId changed
+        updateTaskConnection(taskId, properties.nextTaskId);
 
         // Update task properties in state
         handleTaskOperation("update", {
@@ -949,15 +1017,57 @@ const ChangePatternEditor = () => {
           ...properties,
         });
 
-        // Show success message
         message.success("Task properties updated successfully");
       } catch (error) {
         console.error("Error updating task properties:", error);
         message.error("Failed to update task properties");
       }
     },
-    [modelerRef, handleTaskOperation]
+    [modelerRef, handleTaskOperation, taskProperties, updateTaskConnection]
   );
+
+  const updatePreviews = useCallback((operation, taskData, newProperties) => {
+    // Trigger BPMN task update event
+    document.dispatchEvent(
+      new CustomEvent("bpmnTaskUpdate", {
+        detail: { operation, taskData, allTasks: newProperties },
+      })
+    );
+
+    // Update Task Chain Preview
+    const taskChainPreview = document.querySelector(".task-chain-preview");
+    if (taskChainPreview) {
+      taskChainPreview.dispatchEvent(
+        new CustomEvent("taskUpdate", {
+          detail: { operation, taskData, allTasks: newProperties },
+        })
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!modelerRef.current) return;
+
+    const eventBus = modelerRef.current.get("eventBus");
+
+    const handleEvents = {
+      // Add delete event handler
+      delete: (event) => {
+        const { element } = event;
+        if (element.type === "bpmn:Task") {
+          handleTaskOperation("delete", { id: element.id });
+        }
+      },
+      // ... other existing event handlers
+    };
+
+    // Register delete event listener
+    eventBus.on("shape.remove", handleEvents.delete, HIGH_PRIORITY);
+
+    return () => {
+      eventBus.off("shape.remove", handleEvents.delete);
+    };
+  }, [modelerRef, handleTaskOperation]);
 
   return (
     <div className="change-pattern-editor">
@@ -1094,13 +1204,10 @@ const ChangePatternEditor = () => {
         visible={propertiesPanelVisible}
         selectedElement={selectedElement}
         onPropertyChange={handleTaskPropertyChange}
-        onSave={(taskId, values) => {
-          handleTaskPropertyChange(taskId, values);
-          setPropertiesPanelVisible(false);
-        }}
         onCancel={() => setPropertiesPanelVisible(false)}
-        roles={memoizedRoles || []}
-        resources={memoizedResources || []}
+        roles={memoizedRoles}
+        resources={memoizedResources}
+        taskProperties={taskProperties}
       />
     </div>
   );
