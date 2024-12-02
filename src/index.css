@@ -1,0 +1,85 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+.bpmn-container {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  overflow: hidden;
+}
+
+.bpmn-container .djs-palette {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100px;
+}
+
+.bpmn-container .djs-overlay-container {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bpmn-container .canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.context-menu-item:hover {
+  background-color: #f0f0f0;
+}
+
+.djs-group.draggable {
+  cursor: move;
+  pointer-events: all;
+}
+
+.djs-group.draggable:hover {
+  opacity: 0.9;
+}
+
+.djs-dragging {
+  cursor: move !important;
+}
+
+.djs-element.selected {
+  cursor: move;
+}
+
+.djs-element {
+  cursor: move;
+}
+
+.djs-element.selected {
+  cursor: move !important;
+}
+
+.djs-drag-active {
+  cursor: move !important;
+}
+
+.djs-dragging {
+  cursor: move !important;
+  pointer-events: none;
+}
+
+.djs-shape {
+  pointer-events: all;
+}
