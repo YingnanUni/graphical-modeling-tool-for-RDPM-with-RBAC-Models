@@ -9,7 +9,17 @@ import BpmnModeler from "bpmn-js/lib/Modeler";
 import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-font/css/bpmn.css";
 import { useDispatch, useSelector } from "react-redux";
-import { Button, Space, Select, Card, message, Form, Input, Modal } from "antd";
+import {
+  Button,
+  Space,
+  Select,
+  Card,
+  message,
+  Form,
+  Input,
+  Modal,
+  Dropdown,
+} from "antd";
 import { addPattern } from "../store/patternSlice";
 import { selectRoles } from "../store/roleSlice";
 import { selectResources } from "../store/resourceSlice";
@@ -25,6 +35,7 @@ import {
   validateTaskChainLogic,
   validateTaskProperties,
 } from "../utils/taskValidation";
+import { DownOutlined } from "@ant-design/icons";
 
 // Define constants
 const HIGH_PRIORITY = 1500; // High priority for BPMN event handlers
@@ -59,7 +70,7 @@ const TASK_HEIGHT = 80;
 const SPACING = 60;
 
 const ChangePatternEditor = () => {
-  // 1. 状态声
+  // 1. ��态声
   const [form] = Form.useForm();
   const [taskProperties, setTaskProperties] = useState({});
   const [selectedElement, setSelectedElement] = useState(null);
@@ -375,42 +386,158 @@ const ChangePatternEditor = () => {
 
   // 7. 保存和导出处理
   const handleSave = useCallback(() => {
+    // Get pattern name from form
     const patternName = form.getFieldValue("name");
     if (!patternName) {
       message.error("Please input pattern name");
       return;
     }
 
+    // Validate task chain configuration
     if (!validateTaskChain(taskProperties)) {
       message.error("Invalid task chain configuration");
       return;
     }
 
+    // Create pattern object with metadata
     const pattern = {
+      id: Date.now().toString(), // Generate unique ID
       name: patternName,
       tasks: taskProperties,
       roleId: selectedRole,
       resourceId: selectedResource,
+      createdAt: new Date().toISOString(), // Add creation timestamp
+      lastModified: new Date().toISOString(), // Add modification timestamp
     };
 
+    // Dispatch action to save pattern
     dispatch(addPattern(pattern));
-    message.success("Pattern saved successfully");
+
+    // Show detailed success message with Modal
+    Modal.success({
+      title: "Pattern Saved Successfully",
+      content: (
+        <div>
+          <p>Pattern Name: {patternName}</p>
+          <p>Number of Tasks: {Object.keys(taskProperties).length}</p>
+          <p>Created At: {new Date().toLocaleString()}</p>
+        </div>
+      ),
+    });
   }, [form, taskProperties, selectedRole, selectedResource, dispatch]);
 
-  const handleExport = useCallback(() => {
-    if (!modelerRef.current) return;
-    modelerRef.current.saveXML({ format: true }).then(({ xml }) => {
-      const blob = new Blob([xml], { type: "text/xml" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "pattern.bpmn";
-      a.click();
-      window.URL.revokeObjectURL(url);
-    });
-  }, [modelerRef]);
+  // 导出 BPMN XML 格式
+  const exportBPMN = useCallback(async () => {
+    try {
+      if (!modelerRef.current) {
+        message.error("BPMN modeler not initialized");
+        return;
+      }
 
-  // 8. 初始化和清理
+      const { xml } = await modelerRef.current.saveXML({ format: true });
+
+      const element = document.createElement("a");
+      const file = new Blob([xml], { type: "application/xml" });
+      element.href = URL.createObjectURL(file);
+      element.download = `pattern_${Date.now()}.bpmn`;
+
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+
+      message.success("BPMN file exported successfully");
+    } catch (error) {
+      console.error("BPMN export failed:", error);
+      message.error("Failed to export BPMN file");
+    }
+  }, []);
+
+  // 导出 JSON 格式
+  const exportJSON = useCallback(() => {
+    try {
+      const jsonData = {
+        name: "pattern",
+        tasks: taskProperties,
+        roleId: selectedRole?.id,
+        resourceId: selectedResource?.id,
+        exportedAt: new Date().toISOString(),
+      };
+
+      const element = document.createElement("a");
+      const file = new Blob([JSON.stringify(jsonData, null, 2)], {
+        type: "application/json",
+      });
+      element.href = URL.createObjectURL(file);
+      element.download = `pattern_${Date.now()}.json`;
+
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+
+      message.success("JSON file exported successfully");
+    } catch (error) {
+      console.error("JSON export failed:", error);
+      message.error("Failed to export JSON file");
+    }
+  }, [taskProperties, selectedRole, selectedResource]);
+
+  // 导出菜单项
+  const exportMenuItems = {
+    items: [
+      {
+        key: "1",
+        label: "Export as BPMN",
+        onClick: exportBPMN,
+      },
+      {
+        key: "2",
+        label: "Export as JSON",
+        onClick: exportJSON,
+      },
+    ],
+  };
+
+  // 添加导入函数
+  const handleImport = useCallback(async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const xml = e.target.result;
+
+        // 导入 BPMN XML
+        await modelerRef.current.importXML(xml);
+
+        // 更新任务属性
+        const elementRegistry = modelerRef.current.get("elementRegistry");
+        const tasks = {};
+
+        elementRegistry.forEach((element) => {
+          if (element.type === "bpmn:Task") {
+            tasks[element.id] = {
+              id: element.id,
+              name: element.businessObject.name || "",
+              type: element.type,
+              status: "pending",
+              roleId: element.businessObject.roleId,
+              resourceId: element.businessObject.resourceId,
+            };
+          }
+        });
+
+        setTaskProperties(tasks);
+        message.success("BPMN file imported successfully");
+      };
+
+      reader.readAsText(file);
+    } catch (error) {
+      console.error("Import failed:", error);
+      message.error("Failed to import BPMN file");
+    }
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -843,7 +970,7 @@ const ChangePatternEditor = () => {
         }
       },
 
-      // 拖拽事件处理
+      // ���拽事件处理
       drag: (event) => {
         if (event.element?.type === "bpmn:Task") {
           event.context.canExecute = true;
@@ -1116,7 +1243,28 @@ const ChangePatternEditor = () => {
             >
               Save Pattern
             </Button>
-            <Button onClick={handleExport}>Export</Button>
+            <Space>
+              {/* 添加文件导入按钮 */}
+              <input
+                type="file"
+                accept=".bpmn,.xml,.json"
+                onChange={handleImport}
+                style={{ display: "none" }}
+                id="bpmn-import"
+              />
+              <Button
+                onClick={() => document.getElementById("bpmn-import").click()}
+              >
+                Import
+              </Button>
+
+              {/* 导出下拉菜单 */}
+              <Dropdown menu={exportMenuItems}>
+                <Button>
+                  Export <DownOutlined />
+                </Button>
+              </Dropdown>
+            </Space>
           </Space>
         </Space>
       </Card>

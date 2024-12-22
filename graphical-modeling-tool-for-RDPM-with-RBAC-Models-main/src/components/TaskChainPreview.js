@@ -4,6 +4,7 @@ import React, {
   useState,
   forwardRef,
   useImperativeHandle,
+  useCallback,
 } from "react";
 import { Table, Button, Space, Tooltip, Badge } from "antd";
 
@@ -134,14 +135,31 @@ const TaskChainPreview = forwardRef(
       [localTasks, roles, resources]
     );
 
+    // 添加刷新功能
+    const handleRefresh = useCallback(() => {
+      console.log("刷新任务链:", taskProperties);
+      setLocalTasks(taskProperties);
+    }, [taskProperties]);
+
     return (
-      <Table
-        dataSource={dataSource}
-        columns={columns}
-        pagination={false}
-        size="small"
-        className="real-time-task-chain"
-      />
+      <div>
+        {/* 添加刷新按钮 */}
+        <Button
+          onClick={handleRefresh}
+          style={{ marginBottom: "10px" }}
+          type="primary"
+        >
+          刷新任务链
+        </Button>
+
+        <Table
+          dataSource={dataSource}
+          columns={columns}
+          pagination={false}
+          size="small"
+          className="real-time-task-chain"
+        />
+      </div>
     );
   }
 );
