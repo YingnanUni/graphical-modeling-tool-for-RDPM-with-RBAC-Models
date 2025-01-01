@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useCallback } from "react";
 import * as d3 from "d3";
-import { message } from "antd";
 
 const TaskChainVisualizer = ({ taskProperties, resources }) => {
   const svgRef = useRef(null);

@@ -1,9 +1,8 @@
 import React from "react";
 import { Layout, Tabs } from "antd";
-import RoleResourceManager from "./function_modules/RoleResourceManager";
-import ResourceManager from "./function_modules/ResourceManager";
 import RoleManager from "./function_modules/RoleManager";
-import ChangePatternEditor from "./components/ChangePatternEditor";
+import ResourceManager from "./function_modules/ResourceManager";
+import ChangePatternEditor from "./components/pattern/ChangePatternEditor";
 
 const { Header, Content } = Layout;
 const { TabPane } = Tabs;
@@ -21,9 +20,6 @@ const App = () => {
           </TabPane>
           <TabPane tab="Resource management" key="2">
             <ResourceManager />
-          </TabPane>
-          <TabPane tab="Roles and resource allocation" key="3">
-            <RoleResourceManager />
           </TabPane>
           <TabPane tab="Change Patterns" key="4">
             <ChangePatternEditor />

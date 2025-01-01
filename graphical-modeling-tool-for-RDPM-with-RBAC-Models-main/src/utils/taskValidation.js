@@ -40,6 +40,10 @@ export const validateTaskOperation = (operation, taskData, existingTasks) => {
         };
       }
       break;
+
+    default:
+      // Default case
+      break;
   }
 
   return { isValid: true };
@@ -231,17 +235,26 @@ export const validateTriggerConditions = async (
             );
 
           case "customCondition":
-            // Evaluate custom condition if exists
             if (task.customCondition) {
               try {
-                // Safe evaluation of custom condition
-                // You might want to implement a more secure way to evaluate conditions
-                return new Function(
-                  "task",
-                  "allTasks",
-                  "resourceStatus",
-                  `return ${task.customCondition}`
-                )(task, allTasks, resourceStatus);
+                const evaluateCondition = (condition, context) => {
+                  const { task, allTasks, resourceStatus } = context;
+
+                  const allowedOperations = {
+                    checkStatus: (taskId) => allTasks[taskId]?.status,
+                    checkResource: (resourceId) => resourceStatus[resourceId],
+                    isCompleted: (taskId) =>
+                      allTasks[taskId]?.status === "completed",
+                  };
+
+                  return Boolean(condition);
+                };
+
+                return evaluateCondition(task.customCondition, {
+                  task,
+                  allTasks,
+                  resourceStatus,
+                });
               } catch (error) {
                 console.warn("Custom condition evaluation failed:", error);
                 return false;
@@ -262,4 +275,50 @@ export const validateTriggerConditions = async (
     console.error("Error validating trigger conditions:", error);
     return false;
   }
+};
+
+/**
+ * Safe evaluation of custom condition
+ * @param {string} code - Custom condition code
+ * @param {Object} context - Context object
+ * @returns {any} - Evaluated result
+ */
+export const safeEval = (code, context) => {
+  try {
+    return code.replace(/\${(.*?)}/g, (_, exp) => context[exp] || "");
+  } catch (error) {
+    console.error("Evaluation error:", error);
+    return "";
+  }
+};
+
+/**
+ * Validates resource allocation
+ * @param {string} resourceId - Resource ID
+ * @param {string} taskId - Task ID
+ * @param {Object} taskProperties - Task properties
+ * @param {Array} resources - All resources
+ * @returns {boolean} - Whether the resource allocation is valid
+ */
+export const validateResourceAllocation = (
+  resourceId,
+  taskId,
+  taskProperties,
+  resources
+) => {
+  const resource = resources.find((r) => r.id === resourceId);
+  if (!resource) return false;
+
+  // 获取当前使用该资源的任务数量（不包括当前任务）
+  const currentUsage = Object.entries(taskProperties).filter(
+    ([id, task]) => id !== taskId && task.resourceId === resourceId
+  ).length;
+
+  // 如果是共享资源，检查是否超过最大共享数
+  if (resource.isShared) {
+    return currentUsage < (resource.maxShares || 1);
+  }
+
+  // 非共享资源，检查是否已被占用
+  return currentUsage === 0;
 };

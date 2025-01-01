@@ -1,84 +1,108 @@
 import React from "react";
-import { Button, Input, Select, Table } from "antd";
+import { Button, Input, Table, Form, Badge, Space, Card } from "antd";
 import { useResource } from "../hooks/useResource";
-
-const { Option } = Select;
+import { PlusOutlined } from "@ant-design/icons";
 
 const ResourceManager = () => {
   const {
     resources,
-    roles,
-    resourceName,
-    relatedRole,
-    changePattern,
-    columns,
-    selectedRows,
-    setResourceName,
-    setRelatedRole,
-    setChangePattern,
-    setSelectedRows,
     handleAddResource,
-    handleBatchDelete,
+    handleDeleteResource,
+    handleStatusChange,
   } = useResource();
 
-  return (
-    <div>
-      <h2>Resource management</h2>
-      <Input
-        placeholder="Resource name"
-        value={resourceName}
-        onChange={(e) => setResourceName(e.target.value)}
-        style={{ width: "200px", marginRight: "10px" }}
-      />
-      <Select
-        placeholder="Select Associated Roles"
-        value={relatedRole}
-        onChange={(value) => setRelatedRole(value)}
-        style={{ width: "200px", marginRight: "10px" }}
-      >
-        {roles
-          .filter((role) => role?.name)
-          .map((role) => (
-            <Option key={role.id} value={role.name}>
-              {role.name}
-            </Option>
-          ))}
-      </Select>
-      <Select
-        placeholder="Select Change patterns"
-        value={changePattern}
-        onChange={(value) => setChangePattern(value)}
-        style={{ width: "200px", marginRight: "10px" }}
-      >
-        <Option value="Insertion of tasks">Insertion of tasks</Option>
-        <Option value="Deletion of tasks">Deletion of tasks</Option>
-        <Option value="Replacement of tasks">Replacement of tasks</Option>
-      </Select>
-      <Button type="primary" onClick={handleAddResource}>
-        Additional resources
-      </Button>
-      {/* New Batch Delete button */}
-      <Button
-        type="primary"
-        danger
-        onClick={handleBatchDelete}
-        disabled={selectedRows.length === 0}
-        style={{ marginLeft: "10px" }}
-      >
-        Batch deletion
-      </Button>
+  const [form] = Form.useForm();
 
-      <Table
-        rowSelection={{
-          type: "checkbox",
-          onChange: (_, rows) => setSelectedRows(rows),
-          selectedRowKeys: selectedRows.map((row) => row.id),
-        }}
-        dataSource={resources}
-        columns={columns}
-        rowKey="id"
-        style={{ marginTop: "20px" }}
-      />
+  // 表格列定义
+  const columns = [
+    {
+      title: "Resource Name",
+      dataIndex: "name",
+      key: "name",
+      width: "40%",
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      width: "30%",
+      render: (status) => (
+        <Badge
+          status={status === "available" ? "success" : "error"}
+          text={status === "available" ? "Available" : "Unavailable"}
+        />
+      ),
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      width: "30%",
+      render: (_, record) => (
+        <Space>
+          <Button
+            type="link"
+            onClick={() =>
+              handleStatusChange(
+                record.id,
+                record.status === "available" ? "unavailable" : "available"
+              )
+            }
+          >
+            Toggle Status
+          </Button>
+          <Button
+            type="link"
+            danger
+            onClick={() => handleDeleteResource(record.id)}
+          >
+            Delete
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
+  // 处理表单提交
+  const onFinish = (values) => {
+    const newResource = {
+      id: Date.now().toString(),
+      name: values.name,
+      type: values.type,
+      status: "available",
+    };
+
+    handleAddResource(newResource);
+    form.resetFields();
+  };
+
+  return (
+    <div className="resource-manager">
+      <Card title="Add New Resource" style={{ marginBottom: 16 }}>
+        <Form form={form} layout="inline" onFinish={onFinish}>
+          <Form.Item
+            name="name"
+            rules={[{ required: true, message: "Please input resource name!" }]}
+            style={{ width: "300px" }}
+          >
+            <Input placeholder="Resource Name" />
+          </Form.Item>
+
+          <Form.Item>
+            <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>
+              Add Resource
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card title="Resource List">
+        <Table
+          columns={columns}
+          dataSource={Array.isArray(resources) ? resources : []}
+          rowKey="id"
+          pagination={false}
+        />
+      </Card>
     </div>
   );
 };

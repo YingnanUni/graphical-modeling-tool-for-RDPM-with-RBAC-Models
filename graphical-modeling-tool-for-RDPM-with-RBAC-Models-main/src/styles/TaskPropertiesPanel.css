@@ -1,0 +1,13 @@
+.change-pattern-buttons {
+  margin-bottom: 16px;
+  padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.pattern-button {
+  margin-right: 8px;
+}
+
+.delete-button {
+  float: right;
+}

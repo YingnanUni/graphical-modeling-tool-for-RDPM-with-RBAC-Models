@@ -1,0 +1,38 @@
+.task-tree-monitor {
+  padding: 16px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ant-tree-title {
+  display: flex;
+  align-items: center;
+}
+
+.ant-tree-node-content-wrapper {
+  width: 100%;
+}
+
+.ant-tag {
+  margin-left: 8px;
+}
+
+.resource-status-tag {
+  margin-left: 8px;
+}
+
+.resource-status-tag.shared {
+  background-color: #faad14;
+  color: #fff;
+}
+
+.resource-status-tag.exclusive {
+  background-color: #52c41a;
+  color: #fff;
+}
+
+.resource-status-tag.occupied {
+  background-color: #f5222d;
+  color: #fff;
+}
