@@ -294,7 +294,7 @@ export const safeEval = (code, context) => {
 
 /**
  * Validates resource allocation
- * @param {string} resourceId - Resource ID
+ * @param {string|string[]} resourceId - Resource ID or array of resource IDs
  * @param {string} taskId - Task ID
  * @param {Object} taskProperties - Task properties
  * @param {Array} resources - All resources
@@ -306,13 +306,55 @@ export const validateResourceAllocation = (
   taskProperties,
   resources
 ) => {
+  // 如果没有选择资源，返回 false
+  if (!resourceId) return false;
+
+  // 处理 n:n 模式的资源分配
+  if (Array.isArray(resourceId)) {
+    // 检查每个资源是否有效
+    const isValid = resourceId.every((id) => {
+      const resource = resources.find((r) => r.id === id);
+      if (!resource) return false;
+
+      // 获取当前使用该资源的任务（不包括当前任务）
+      const currentUsage = Object.entries(taskProperties).filter(
+        ([tid, task]) => {
+          if (tid === taskId) return false;
+
+          // 检查任务的资源分配
+          if (Array.isArray(task.resourceId)) {
+            return task.resourceId.includes(id);
+          }
+          return task.resourceId === id;
+        }
+      ).length;
+
+      // 如果是共享资源，检查是否超过最大共享数
+      if (resource.isShared) {
+        return currentUsage < (resource.maxShares || 1);
+      }
+
+      // 非共享资源，检查是否已被占用
+      return currentUsage === 0;
+    });
+
+    return isValid;
+  }
+
+  // 处理单资源分配的情况 (1:1)
   const resource = resources.find((r) => r.id === resourceId);
   if (!resource) return false;
 
   // 获取当前使用该资源的任务数量（不包括当前任务）
-  const currentUsage = Object.entries(taskProperties).filter(
-    ([id, task]) => id !== taskId && task.resourceId === resourceId
-  ).length;
+  const currentUsage = Object.entries(taskProperties).filter(([id, task]) => {
+    if (id === taskId) return false;
+
+    // 检查任务的资源分配
+    if (Array.isArray(task.resourceId)) {
+      return task.resourceId.includes(resourceId);
+    }
+    return task.resourceId === resourceId;
+  }).length;
 
   // 如果是共享资源，检查是否超过最大共享数
   if (resource.isShared) {

@@ -1,51 +1,67 @@
-// RoleService.js
+import axios from "axios";
 
-let roles = [];
-let rolePermissions = {};
-let roleConstraints = {};
+const BASE_URL = "/api";
 
-export const addOrUpdateRole = (
-  newRole,
-  permissions = [],
-  constraints = {}
-) => {
-  const roleIndex = roles.findIndex((role) => role.name === newRole.name);
-  if (roleIndex !== -1) {
-    roles[roleIndex] = newRole;
-  } else {
-    roles.push(newRole);
-  }
-  rolePermissions[newRole.name] = permissions;
-  roleConstraints[newRole.name] = constraints;
-};
-
-export const deleteRole = (roleName) => {
-  roles = roles.filter((role) => role.name !== roleName);
-  delete rolePermissions[roleName];
-  delete roleConstraints[roleName];
-};
-
-export const getRoleHierarchy = () => {
-  const roleMap = {};
-  const hierarchy = [];
-
-  roles.forEach((role) => {
-    roleMap[role.name] = { title: role.name, key: role.name, children: [] };
-  });
-
-  roles.forEach((role) => {
-    if (role.parent && roleMap[role.parent]) {
-      roleMap[role.parent].children.push(roleMap[role.name]);
-    } else {
-      hierarchy.push(roleMap[role.name]);
+export class RoleService {
+  // Get all roles
+  static async getAllRoles() {
+    try {
+      const response = await axios.get(`${BASE_URL}/get-data/roles`);
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+      throw error;
     }
-  });
+  }
 
-  return hierarchy;
-};
+  // Get specific role by name
+  static async getRole(roleName) {
+    try {
+      const response = await axios.get(`${BASE_URL}/get-data/roles`, {
+        params: { name: roleName },
+      });
+      return response.data.data[0];
+    } catch (error) {
+      console.error("Failed to fetch role details:", error);
+      throw error;
+    }
+  }
 
-export const getRoles = () => roles || [];
+  // Create new role
+  static async createRole(roleData) {
+    try {
+      const response = await axios.post(`${BASE_URL}/add-data/roles`, roleData);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to create role:", error);
+      throw error;
+    }
+  }
 
-export const getRolePermissions = () => rolePermissions;
+  // Update existing role
+  static async updateRole(roleName, roleData) {
+    try {
+      const response = await axios.put(
+        `${BASE_URL}/update-data/roles/${roleName}`,
+        roleData
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to update role:", error);
+      throw error;
+    }
+  }
 
-export const getRoleConstraints = () => roleConstraints;
+  // Delete role
+  static async deleteRole(roleName) {
+    try {
+      const response = await axios.delete(
+        `${BASE_URL}/delete-data/roles/${roleName}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete role:", error);
+      throw error;
+    }
+  }
+}

@@ -1,20 +1,34 @@
 /**
- * ChangePatternEditor 是一个 React 组件，主要用于：
+ * ChangePatternEditor is a React component for managing and editing tasks
+ * using a BPMN-based graphical tool. It supports the following features:
  *
- * 1. BPMN 图表的绘制和编辑：
- *    - 使用 bpmn-js 创建 BPMN 图表。
+ * 1. BPMN Diagram Drawing and Editing:
+ *    - Uses the bpmn-js library to create and manipulate BPMN diagrams.
+ *    - Allows adding, editing, deleting, and connecting task nodes in the diagram.
  *
- * 2. 任务链预览：
- *    - 提供一个实时预览的界面，展示任务链的可视化关系。
+ * 2. Task Tree Monitor:
+ *    - Real-time task chain monitoring tool for visualizing the structure of tasks,
+ *      their attributes and their dependencies in the BPMN diagram, supporting dynamic updates and problem localization.
  *
- * 3. 任务属性编辑：
- *    - 可选择 BPMN 图中的任务，编辑其属性（如角色、资源、连接关系等）。
+ * 3. Task Property Editing:
+ *    - Enables selecting tasks from the BPMN diagram and modifying their properties,
+ *      such as roles, resources, and task connections.
  *
- * 4. 角色和资源管理：
- *    - 支持选择和分配角色与资源到任务。
+ * 4. Role and Resource Management:
+ *    - Includes an interface for assigning roles and resources to specific tasks.
  *
- * 5. 文件导入与导出：
- *    - 支持导入和导出 BPMN 文件（XML 格式）以及 JSON 格式文件。
+ * 5. File Import and Export:
+ *    - Supports importing and exporting BPMN diagrams in .bpmn or .xml format.
+ *    - Allows importing and exporting task properties in .json format.
+ *
+ * Dependencies:
+ * - React for state management and UI rendering.
+ * - bpmn-js for BPMN diagram creation and editing.
+ * - Ant Design (antd) for UI components like buttons, modals, and dropdowns.
+ * - Redux for global state management of roles and resources.
+ *
+ * This component is designed to provide an intuitive user interface for
+ * task and workflow management in BPMN-like environments.
  */
 
 // React and hooks
@@ -55,7 +69,6 @@ import { selectResources } from "../../store/resourceSlice";
 
 // Custom components
 import TaskPropertiesPanel from "../task/TaskPropertiesPanel";
-import TaskChainVisualizer from "../task/TaskChainVisualizer";
 import { CustomBpmnRenderer } from "../bpmn/CustomBpmnRenderer";
 import TaskTreeMonitor from "../monitor/TaskTreeMonitor";
 
@@ -163,12 +176,9 @@ const ChangePatternEditor = () => {
       },
     });
 
-    // 等待 modeler 完全初始化
     modeler.on("import.done", () => {
       modelerRef.current = modeler;
-      // 从 modeler 获取 eventBus
       const eventBus = modeler.get("eventBus");
-      // 触发初始化完成事件
       eventBus.fire("modeler.ready");
     });
 
@@ -425,7 +435,6 @@ const ChangePatternEditor = () => {
       if (!modelerRef.current || !taskId) return;
 
       try {
-        // 验证任务属性
         const validationResult = validateTaskProperties(
           properties,
           taskProperties
@@ -435,13 +444,11 @@ const ChangePatternEditor = () => {
           return;
         }
 
-        // 获取 BPMN 建模服务
         const modeling = modelerRef.current.get("modeling");
         const elementRegistry = modelerRef.current.get("elementRegistry");
         const element = elementRegistry.get(taskId);
 
         if (element) {
-          // 更新 BPMN 节点属性
           modeling.updateProperties(element, {
             name: properties.name,
             roleId: properties.roleId,
@@ -453,18 +460,15 @@ const ChangePatternEditor = () => {
             roleResources: properties.roleResources,
           });
 
-          // 如果有连接关系变更，更新连接
           if (properties.nextTaskId !== undefined) {
             updateTaskConnection(taskId, properties.nextTaskId);
           }
 
-          // 更新任务属性状态
           handleTaskOperation("update", {
             id: taskId,
             ...properties,
           });
 
-          // 触发资源分配更新事件
           document.dispatchEvent(
             new CustomEvent("resourceAllocationUpdate", {
               detail: {
@@ -629,88 +633,6 @@ const ChangePatternEditor = () => {
     // Clear file input value, allow repeated import of same file
     event.target.value = "";
   };
-
-  /**
-   * Handle inserting a new task before or after an existing task
-   * @param {Object} element - The reference task element
-   * @param {string} position - Position to insert ("before" or "after")
-   */
-  const handleInsertTask = useCallback(
-    (element, position) => {
-      if (!modelerRef.current || !processElement) {
-        console.warn("Modeler or process element not initialized");
-        return;
-      }
-
-      const modeling = modelerRef.current.get("modeling");
-      const elementFactory = modelerRef.current.get("elementFactory");
-      const bpmnFactory = modelerRef.current.get("bpmnFactory");
-
-      try {
-        // Create new task business object
-        const taskBo = bpmnFactory.create("bpmn:Task", {
-          name: "New Task",
-          isExpanded: true,
-        });
-
-        // Set parent for the new task
-        if (processElement.businessObject) {
-          taskBo.$parent = processElement.businessObject;
-        } else {
-          taskBo.$parent = processElement;
-        }
-
-        // Create shape for the new task
-        const newTask = elementFactory.createShape({
-          type: "bpmn:Task",
-          businessObject: taskBo,
-          isExpanded: true,
-        });
-
-        // Calculate position for the new task
-        const position = {
-          x:
-            position === "before"
-              ? element.x - 150 // Place before the reference task
-              : element.x + element.width + 50, // Place after the reference task
-          y: element.y,
-        };
-
-        // Create the new task element in the diagram
-        const newElement = modeling.createShape(
-          newTask,
-          position,
-          processElement
-        );
-
-        // Handle connections based on insertion position
-        if (position === "before") {
-          // Reconnect incoming connections to the new task
-          const incomingConnections = element.incoming || [];
-          incomingConnections.forEach((connection) => {
-            modeling.reconnectEnd(connection, newElement);
-          });
-          // Connect new task to the reference task
-          modeling.connect(newElement, element);
-        } else {
-          // Reconnect outgoing connections from the reference task to the new task
-          const outgoingConnections = element.outgoing || [];
-          outgoingConnections.forEach((connection) => {
-            modeling.reconnectStart(connection, newElement);
-          });
-          // Connect reference task to the new task
-          modeling.connect(element, newElement);
-        }
-
-        // Add the new task to task properties
-        handleTaskOperation("add", { id: newElement.id });
-      } catch (error) {
-        console.error("Error inserting task:", error);
-        message.error("Failed to insert new task");
-      }
-    },
-    [modelerRef, processElement, handleTaskOperation]
-  );
 
   // Add event listener for element movement in useEffect hook
   useEffect(() => {
@@ -1088,13 +1010,10 @@ const ChangePatternEditor = () => {
       const { element } = event;
 
       if (element.type === "bpmn:Task") {
-        // 更新选中的任务
         setSelectedTaskForMonitor(element);
 
-        // 获取任务的资源分配信息
         const taskData = taskProperties[element.id];
         if (taskData) {
-          // 触发资源数据加载事件
           document.dispatchEvent(
             new CustomEvent("loadTaskResources", {
               detail: {
@@ -1106,7 +1025,6 @@ const ChangePatternEditor = () => {
           );
         }
 
-        // 可选：添加视觉反馈
         const modeling = modelerRef.current.get("modeling");
         modeling.setColor(element, {
           stroke: "#1890ff",
@@ -1132,7 +1050,6 @@ const ChangePatternEditor = () => {
     }));
   };
 
-  // 监听资源分配弹窗事件
   useEffect(() => {
     const handleOpenResourceAllocation = (event) => {
       const { taskId, taskData } = event.detail;
@@ -1181,7 +1098,6 @@ const ChangePatternEditor = () => {
   // Update resource allocation handler
   const handleResourceAllocation = useCallback(
     (taskId, allocation) => {
-      // 验证资源分配
       const isValid = validateResourceAllocation(
         allocation.resourceId,
         taskId,
@@ -1194,7 +1110,6 @@ const ChangePatternEditor = () => {
         return;
       }
 
-      // 更新任务属性
       handleTaskOperation("update", {
         id: taskId,
         roleId: allocation.roleId,
@@ -1223,18 +1138,15 @@ const ChangePatternEditor = () => {
     };
   }, []);
 
-  // 在 useEffect 中添加事件监听
   useEffect(() => {
     const handleResourceAllocationUpdate = (event) => {
       const { taskId, taskData } = event.detail;
 
-      // 更新任务属性
       handleTaskOperation("update", {
         id: taskId,
         ...taskData,
       });
 
-      // 更新选中的任务监视器
       if (selectedTaskForMonitor && selectedTaskForMonitor.id === taskId) {
         setSelectedTaskForMonitor({
           ...selectedTaskForMonitor,
@@ -1246,13 +1158,11 @@ const ChangePatternEditor = () => {
       }
     };
 
-    // 添加事件监听器
     document.addEventListener(
       "resourceAllocationUpdate",
       handleResourceAllocationUpdate
     );
 
-    // 清理函数
     return () => {
       document.removeEventListener(
         "resourceAllocationUpdate",
@@ -1342,7 +1252,7 @@ const ChangePatternEditor = () => {
         </div>
       </div>
 
-      {/* 添加资源分配弹窗 */}
+      {/* Add Resource Allocation Popup */}
       <Modal
         title="Resource Allocation"
         open={resourceAllocationVisible}

@@ -1,37 +1,25 @@
-/**
- * 	1.	自定义 BPMN 任务节点的渲染
-	•	使用 CustomBpmnRenderer 类扩展了默认的 BPMN.js 渲染器，以支持任务节点的自定义样式和内容，比如任务名称、角色、资源信息，以及状态指示器等。
-	2.	动态任务模式和资源分配
-	•	提供 ChangePatternModal 模态框组件，让用户通过一个界面定义任务的基本信息（如名称、角色、资源）并插入到 BPMN 图中。
-	•	支持任务的多种插入模式（例如插入到当前任务之前、之后、并行等）。
-	3.	任务与资源的交互性增强
-	•	支持双击任务节点弹出资源分配界面。
-	•	通过自定义事件（如 bpmnTaskInsert 和 openResourceAllocation），实现任务插入、更新和删除等动态交互操作。
-	4.	与 Redux 状态管理集成
-	•	使用 useSelector 从 Redux 状态中读取角色（roles）和资源（resources），以便动态生成选择列表，增强与全局状态的联动。
-	5.	用户体验改进
-	•	增强的任务节点可视化：使用不同颜色和文本表示任务状态、角色和资源信息。
-	•	增加任务的鼠标交互（如悬停、点击）和工具提示功能，提升可用性。
- */
-import BaseRenderer from "diagram-js/lib/draw/BaseRenderer";
-import { append as svgAppend, create as svgCreate } from "tiny-svg";
-import React, { useState } from "react";
-import { Modal, Form, Input, Select, Radio, message } from "antd";
-import { useSelector } from "react-redux";
-import { selectRoles } from "../../store/roleSlice";
-import { selectResources } from "../../store/resourceSlice";
+import BaseRenderer from "diagram-js/lib/draw/BaseRenderer"; // Base class for custom renderers (core of the BPMN.js)
+import { append as svgAppend, create as svgCreate } from "tiny-svg"; // SVG utilities
+import React, { useState } from "react"; // React for modal components
+import { Modal, Form, Input, Select, Radio, message } from "antd"; // Ant Design components
+import { useSelector } from "react-redux"; // Redux for state management
+import { selectRoles } from "../../store/roleSlice"; // Redux slice for roles
+import { selectResources } from "../../store/resourceSlice"; // Redux slice for resources
 
 // Constants for rendering configuration
 const HIGH_PRIORITY = 1500;
 const TASK_WIDTH = 100;
 const TASK_HEIGHT = 80;
 
-//一个弹出的模态框组件，用于让用户定义新的任务信息。
+/**
+ * Modal component to allow users to define new task information.
+ * The modal includes fields for task name, allocation type, roles, and resources.
+ */
 export const ChangePatternModal = ({
   visible,
   onCancel,
   onConfirm,
-  patternType,
+  patternType, // Type of pattern (before, after, parallel)
   currentTask,
 }) => {
   const [form] = Form.useForm();
@@ -39,6 +27,9 @@ export const ChangePatternModal = ({
   const resources = useSelector(selectResources);
   const [allocationType, setAllocationType] = useState("1:1");
 
+  /**
+   * Handles form submission and dispatches a custom event to insert the task into the BPMN diagram.
+   */
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -51,6 +42,7 @@ export const ChangePatternModal = ({
 
       onConfirm(newTaskData, patternType, currentTask?.id);
 
+      // Dispatch custom event for task insertion
       document.dispatchEvent(
         new CustomEvent("bpmnTaskInsert", {
           detail: {
@@ -139,7 +131,10 @@ export const ChangePatternModal = ({
   );
 };
 
-// 扩展 BPMN.js 的 BaseRenderer 类，实现任务节点的自定义渲染逻辑。
+/**
+ * Custom BPMN renderer extending the BaseRenderer class.
+ * This class customizes the appearance and behavior of task nodes in the BPMN diagram.
+ */
 export class CustomBpmnRenderer extends BaseRenderer {
   constructor(eventBus, bpmnRenderer, elementRegistry) {
     super(eventBus, HIGH_PRIORITY);
@@ -147,26 +142,26 @@ export class CustomBpmnRenderer extends BaseRenderer {
     this.elementRegistry = elementRegistry;
     this.eventBus = eventBus;
 
-    // 初始化服务引用
+    // Initialize modeling and factory services
     this.modeling = null;
     this.bpmnFactory = null;
     this.modeler = null;
 
-    // 获取注入器
     const injector = eventBus._injector;
 
     if (injector) {
       try {
-        // 直接尝试获取服务
+        // Service for diagram manipulation
         this.modeling = injector.get("modeling");
+        // Factory for creating BPMN elements
         this.bpmnFactory = injector.get("bpmnFactory");
+        //  Service for the modeler
         this.modeler = injector.get("modeler");
       } catch (e) {
         console.warn("Initial service injection failed, will try later:", e);
       }
     }
 
-    // 修改初始化方法
     this.initializeServices = () => {
       return new Promise((resolve) => {
         if (this.modeling && this.bpmnFactory) {
@@ -215,7 +210,6 @@ export class CustomBpmnRenderer extends BaseRenderer {
       });
     };
 
-    // 监听关键事件
     const initEvents = ["diagram.init", "import.done", "canvas.init"];
     initEvents.forEach((event) => {
       eventBus.on(event, () => {
@@ -223,7 +217,6 @@ export class CustomBpmnRenderer extends BaseRenderer {
       });
     });
 
-    // 修改任务插入事件监听器
     document.addEventListener("bpmnTaskInsert", async (event) => {
       try {
         await this.ensureServices();
@@ -267,20 +260,19 @@ export class CustomBpmnRenderer extends BaseRenderer {
       }
     });
 
-    // 注册双击事件 Resource Allocation
+    // Double-click event to open resource allocation
     eventBus.on("element.dblclick", (event) => {
       const { element } = event;
       if (element.type === "bpmn:Task") {
         const taskData = element.businessObject || {};
 
-        // 触发资源分配事件
         document.dispatchEvent(
           new CustomEvent("openResourceAllocation", {
             detail: {
               taskId: element.id,
               taskData: {
                 ...taskData,
-                // 确保包含所有必要的任务数据
+
                 name: taskData.name,
                 roleId: taskData.roleId,
                 resourceId: taskData.resourceId,
@@ -295,7 +287,9 @@ export class CustomBpmnRenderer extends BaseRenderer {
     });
   }
 
-  // 修改服务检查方法
+  /** Dynamically create task nodes (pre-tasks, post-tasks, parallel tasks) in the BPMN graph and ensure that the required BPMN services (
+   *   e.g. modeling and bpmnFactory) are available through ensureServices.
+   */
   async ensureServices() {
     if (this.modeling && this.bpmnFactory) {
       return true;
@@ -303,44 +297,36 @@ export class CustomBpmnRenderer extends BaseRenderer {
 
     const initialized = await this.initializeServices();
     if (!initialized) {
-      throw new Error("无法初始化BPMN服务");
+      throw new Error("Unable to initialize BPMN service");
     }
     return true;
   }
 
-  /**
-   * 在当前任务之前创建新任务
-   * @param {Object} currentElement - 当前任务元素
-   * @param {Object} newTaskData - 新任务的数据
-   */
+  // Dynamically creates a new task node before the current task node and updates its connection relationship.
   async createBeforeTask(currentElement, newTaskData) {
     await this.ensureServices();
 
     try {
       if (!this.modeling || !this.bpmnFactory) {
-        throw new Error("BPMN服务未就绪");
+        throw new Error("BPMN service not ready");
       }
 
-      // 创建新任务的业务对象
       const taskBo = this.bpmnFactory.create("bpmn:Task", {
         name: newTaskData.name || "New Task",
         taskData: newTaskData,
       });
 
-      // 计算新任务位置
       const position = {
         x: currentElement.x - TASK_WIDTH - 100,
         y: currentElement.y,
       };
 
-      // 创建新任务
       const newElement = this.modeling.createShape(
         { type: "bpmn:Task", businessObject: taskBo },
         position,
         currentElement.parent
       );
 
-      // 处理连接
       if (currentElement.incoming && currentElement.incoming.length > 0) {
         const incomingConnection = currentElement.incoming[0];
         const sourceElement = incomingConnection.source;
@@ -359,25 +345,19 @@ export class CustomBpmnRenderer extends BaseRenderer {
     }
   }
 
-  /**
-   * 在当前任务之后创建新任务
-   * @param {Object} currentElement - 当前任务元素
-   * @param {Object} newTaskData - 新任务的数据
-   */
+  // Dynamically creates a new task node after the current task node and updates its connection relationship.
   createAfterTask(currentElement, newTaskData) {
     try {
       const modeling = this.modelerRef.get("modeling");
       const elementFactory = this.modelerRef.get("elementFactory");
       const bpmnFactory = this.modelerRef.get("bpmnFactory");
 
-      // 创建新任务的业务对象
       const taskBo = bpmnFactory.create("bpmn:Task", {
         name: newTaskData.name || "New Task",
         isExecutable: true,
         ...newTaskData,
       });
 
-      // 创建新任务的形状
       const newTaskShape = elementFactory.createShape({
         type: "bpmn:Task",
         businessObject: taskBo,
@@ -385,33 +365,25 @@ export class CustomBpmnRenderer extends BaseRenderer {
         height: TASK_HEIGHT,
       });
 
-      // 计算新任务的位置（在当前任务右侧）
       const position = {
         x: currentElement.x + currentElement.width + 100,
         y: currentElement.y,
       };
 
-      // 在图表中创建新任务
       const newElement = modeling.createShape(
         newTaskShape,
         position,
         currentElement.parent
       );
 
-      // 处理连接关系
       if (currentElement.outgoing && currentElement.outgoing.length > 0) {
-        // 获取当前任务的后续连接
         const outgoingConnection = currentElement.outgoing[0];
         const targetElement = outgoingConnection.target;
 
-        // 删除原有连接
         modeling.removeConnection(outgoingConnection);
-
-        // 创建新的连接关系
         modeling.connect(currentElement, newElement);
         modeling.connect(newElement, targetElement);
       } else {
-        // 如果没有后续连接，直接连接当前任务到新任务
         modeling.connect(currentElement, newElement);
       }
 
@@ -422,18 +394,13 @@ export class CustomBpmnRenderer extends BaseRenderer {
     }
   }
 
-  /**
-   * 创建与当前任务并行的新任务
-   * @param {Object} currentElement - 当前任务元素
-   * @param {Object} newTaskData - 新任务的数据
-   */
+  // Create new task nodes parallel to the current task node while connecting parallel tasks through branch gateways and merge gateways.
   createParallelTask(currentElement, newTaskData) {
     try {
       const modeling = this.modelerRef.get("modeling");
       const elementFactory = this.modelerRef.get("elementFactory");
       const bpmnFactory = this.modelerRef.get("bpmnFactory");
 
-      // 创建并行网关
       const createGateway = (type, position) => {
         const gatewayBo = bpmnFactory.create("bpmn:ParallelGateway");
         const gatewayShape = elementFactory.createShape({
@@ -447,19 +414,16 @@ export class CustomBpmnRenderer extends BaseRenderer {
         );
       };
 
-      // 创建分支网关（在当前任务前）
       const splitGateway = createGateway("split", {
         x: currentElement.x - 50,
         y: currentElement.y,
       });
 
-      // 创建合并网关（在当前任务后）
       const joinGateway = createGateway("join", {
         x: currentElement.x + currentElement.width + 50,
         y: currentElement.y,
       });
 
-      // 创建新的并行任务
       const taskBo = bpmnFactory.create("bpmn:Task", {
         name: newTaskData.name || "Parallel Task",
         isExecutable: true,
@@ -473,7 +437,6 @@ export class CustomBpmnRenderer extends BaseRenderer {
         height: TASK_HEIGHT,
       });
 
-      // 在当前任务下方创建并行任务
       const newElement = modeling.createShape(
         newTaskShape,
         {
@@ -483,7 +446,6 @@ export class CustomBpmnRenderer extends BaseRenderer {
         currentElement.parent
       );
 
-      // 重新立连接关系
       if (currentElement.incoming && currentElement.incoming.length > 0) {
         const incomingConnection = currentElement.incoming[0];
         const sourceElement = incomingConnection.source;
@@ -491,15 +453,12 @@ export class CustomBpmnRenderer extends BaseRenderer {
         modeling.connect(sourceElement, splitGateway);
       }
 
-      // 连接分支网关到两个任务
       modeling.connect(splitGateway, currentElement);
       modeling.connect(splitGateway, newElement);
 
-      // 连接两个任务到合并网关
       modeling.connect(currentElement, joinGateway);
       modeling.connect(newElement, joinGateway);
 
-      // 连接合并网关到后续任务
       if (currentElement.outgoing && currentElement.outgoing.length > 0) {
         const outgoingConnection = currentElement.outgoing[0];
         const targetElement = outgoingConnection.target;
@@ -513,6 +472,8 @@ export class CustomBpmnRenderer extends BaseRenderer {
       throw error;
     }
   }
+
+  // =========== Customizing the appearance and interaction of BPMN task nodes =============
 
   /**
    * Determines if this renderer can handle the given element
@@ -645,16 +606,33 @@ export class CustomBpmnRenderer extends BaseRenderer {
       svgAppend(tooltip, tooltipContent);
       svgAppend(parentNode, tooltip);
 
-      // 创建可点击区域
       const clickableGroup = svgCreate("g", {
         class: "task-clickable-area",
         cursor: "pointer",
       });
 
-      // 添加点击事件处理器
       const handleClick = (event) => {
         event.stopPropagation();
-        console.log("Task clicked:", element); // 调试日志
+        console.log("Task clicked:", element);
+
+        document.dispatchEvent(
+          new CustomEvent("taskSelected", {
+            detail: {
+              task: element,
+              taskData: element.businessObject,
+            },
+          })
+        );
+
+        document.dispatchEvent(
+          new CustomEvent("resourceAllocationUpdate", {
+            detail: {
+              taskId: element.id,
+              taskData: element.businessObject,
+            },
+          })
+        );
+
         this.elementRegistry.eventBus.fire("element.click", {
           element: element,
           originalEvent: event,
@@ -664,13 +642,11 @@ export class CustomBpmnRenderer extends BaseRenderer {
 
       clickableGroup.addEventListener("click", handleClick);
 
-      // 包装原始形状并添加视觉反馈
       while (parentNode.firstChild) {
         clickableGroup.appendChild(parentNode.firstChild);
       }
       svgAppend(parentNode, clickableGroup);
 
-      // 添加鼠标悬停效果
       clickableGroup.addEventListener("mouseenter", () => {
         clickableGroup.style.filter = "brightness(0.95)";
         clickableGroup.style.cursor = "pointer";
@@ -709,7 +685,6 @@ export class CustomBpmnRenderer extends BaseRenderer {
     }
   }
 
-  // 添加替换任务的方法
   replaceTask(currentElement, newTask) {
     this.ensureServices();
     this.modeling.updateProperties(currentElement, {
@@ -718,12 +693,10 @@ export class CustomBpmnRenderer extends BaseRenderer {
     });
   }
 
-  // 添加删除任务的方法
   deleteTask(element) {
     this.ensureServices();
     this.modeling.removeElements([element]);
   }
 }
 
-// Dependency injection configuration
 CustomBpmnRenderer.$inject = ["eventBus", "bpmnRenderer", "elementRegistry"];
