@@ -1,12 +1,12 @@
 import axios from "axios";
 
-const BASE_URL = "/api";
+const BASE_URL = "http://127.0.0.1:8000";
 
 export class ResourceService {
   // Get all resources
   static async getAllResources() {
     try {
-      const response = await axios.get(`${BASE_URL}/get-data/resources`);
+      const response = await axios.get(`${BASE_URL}/resources`);
       return response.data.data;
     } catch (error) {
       console.error("Failed to fetch resources:", error);
@@ -30,10 +30,14 @@ export class ResourceService {
   // Create new resource
   static async createResource(resourceData) {
     try {
-      const response = await axios.post(
-        `${BASE_URL}/add-data/resources`,
-        resourceData
-      );
+      // Format data according to backend Resource model
+      const formattedData = {
+        name: resourceData.name,
+        status: resourceData.status || "available",
+        description: resourceData.description || null,
+      };
+
+      const response = await axios.post(`${BASE_URL}/resources`, formattedData);
       return response.data;
     } catch (error) {
       console.error("Failed to create resource:", error);
@@ -64,6 +68,19 @@ export class ResourceService {
       return response.data;
     } catch (error) {
       console.error("Failed to delete resource:", error);
+      throw error;
+    }
+  }
+
+  // Toggle resource status (available/unavailable)
+  static async toggleResourceStatus(resourceName) {
+    try {
+      const response = await axios.put(
+        `${BASE_URL}/resources/${resourceName}/toggle-status`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to toggle resource status:", error);
       throw error;
     }
   }

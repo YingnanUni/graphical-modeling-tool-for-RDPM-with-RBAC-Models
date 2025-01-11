@@ -13,7 +13,6 @@ const ResourceManager = () => {
 
   const [form] = Form.useForm();
 
-  // 表格列定义
   const columns = [
     {
       title: "Resource Name",
@@ -62,7 +61,6 @@ const ResourceManager = () => {
     },
   ];
 
-  // 处理表单提交
   const onFinish = (values) => {
     const newResource = {
       id: Date.now().toString(),

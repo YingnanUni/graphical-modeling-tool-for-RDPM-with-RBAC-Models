@@ -116,11 +116,19 @@ export const useRole = () => {
 
   // Handle deleting a single role
   const handleDeleteRole = useCallback(
-    (roleId) => {
-      dispatch(deleteRole(roleId));
-      message.success("Role deleted successfully");
+    (roleNameOrId) => {
+      const roleToDelete = roles.find(
+        (role) => role.id === roleNameOrId || role.name === roleNameOrId
+      );
+
+      if (roleToDelete) {
+        dispatch(deleteRole(roleToDelete.id));
+        message.success("Role deleted successfully");
+      } else {
+        message.error("Role not found");
+      }
     },
-    [dispatch]
+    [dispatch, roles]
   );
 
   // Handle batch deletion of roles

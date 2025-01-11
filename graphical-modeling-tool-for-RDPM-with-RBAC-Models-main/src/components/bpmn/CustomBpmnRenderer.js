@@ -1,3 +1,34 @@
+// ========== Modal Component: ChangePatternModal ==========
+// 1. Provides a user interface (modal window) for adding new tasks.
+// 2. Allows users to input task name, choose allocation type (1:1, 1:n, n:n), assign roles, and resources.
+// 3. Validates user input and dispatches a custom event to insert new task information into the BPMN diagram.
+
+// ========== Custom Renderer: CustomBpmnRenderer ==========
+// 1. Service Initialization:
+//    - Injects key BPMN.js services (e.g., modeling, bpmnFactory) through the eventBus.
+//    - Dynamically retrieves services to ensure availability after the BPMN model is fully loaded.
+
+// 2. Task Creation Functions:
+//    - createBeforeTask: Inserts a new task before the current task node.
+//    - createAfterTask: Inserts a new task after the current task node.
+//    - createParallelTask: Creates parallel tasks connected via Parallel Gateways.
+
+// 3. Custom Task Rendering:
+//    - Customizes task node appearance to display task name, roles, resources, and a status indicator.
+//    - Supports tooltips for detailed task information on hover.
+
+// 4. Task Interaction:
+//    - Double-clicking a task node opens the resource allocation modal.
+//    - Clicking a task node triggers custom events (e.g., task selection and resource updates).
+
+// 5. Event Listeners:
+//    - Listens to BPMN diagram initialization and import events to ensure services and custom functionalities are initialized at the right time.
+//    - Handles custom events (e.g., task insertion and resource allocation updates) to dynamically update the BPMN diagram.
+
+// 6. Task Operations:
+//    - Supports replacing tasks (replaceTask) and deleting tasks (deleteTask).
+//    - Updates task appearance and properties to reflect the latest business logic and status.
+
 import BaseRenderer from "diagram-js/lib/draw/BaseRenderer"; // Base class for custom renderers (core of the BPMN.js)
 import { append as svgAppend, create as svgCreate } from "tiny-svg"; // SVG utilities
 import React, { useState } from "react"; // React for modal components
@@ -170,25 +201,32 @@ export class CustomBpmnRenderer extends BaseRenderer {
         }
 
         const tryGetServices = () => {
-          const canvas = this.elementRegistry.get("__canvas");
-          if (!canvas) return false;
-
           try {
-            const injector = canvas._injector || this.eventBus._injector;
+            // 直接从 eventBus 的注入器获取服务
+            const injector = this.eventBus._injector;
             if (!injector) return false;
 
-            this.modeling = injector.get("modeling");
-            this.bpmnFactory = injector.get("bpmnFactory");
-            this.modeler = injector.get("modeler");
+            // 尝试获取建模服务
+            const modeling = injector.get("modeling");
+            const bpmnFactory = injector.get("bpmnFactory");
+            const modeler = injector.get("modeler");
 
-            return !!(this.modeling && this.bpmnFactory);
+            // 只有当所有必需的服务都获取到时才更新实例属性
+            if (modeling && bpmnFactory) {
+              this.modeling = modeling;
+              this.bpmnFactory = bpmnFactory;
+              this.modeler = modeler;
+              return true;
+            }
+            return false;
           } catch (e) {
+            console.warn("Service injection attempt failed:", e);
             return false;
           }
         };
 
         let attempts = 0;
-        const maxAttempts = 10;
+        const maxAttempts = 20;
 
         const checkServices = () => {
           if (tryGetServices()) {
@@ -203,7 +241,7 @@ export class CustomBpmnRenderer extends BaseRenderer {
             return;
           }
 
-          setTimeout(checkServices, 500);
+          setTimeout(checkServices, 1000);
         };
 
         checkServices();
