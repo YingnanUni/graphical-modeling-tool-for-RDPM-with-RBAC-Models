@@ -76,6 +76,41 @@ const TaskPropertiesPanel = ({
     ? taskProperties[selectedElement.id] || {}
     : {};
 
+  const handlePropertyChange = useCallback(
+    (property, value) => {
+      if (!selectedElement) return;
+
+      const updatedTask = {
+        ...currentTask,
+        [property]: value,
+      };
+
+      onTaskPropertiesChange(selectedElement.id, updatedTask);
+
+      requestAnimationFrame(() => {
+        document.dispatchEvent(
+          new CustomEvent("resourceAllocationUpdate", {
+            detail: {
+              taskId: selectedElement.id,
+              allocation: updatedTask,
+            },
+          })
+        );
+      });
+    },
+    [selectedElement?.id, currentTask, onTaskPropertiesChange]
+  );
+
+  const handleAllocationTypeChange = useCallback(
+    (value) => {
+      setAllocationType(value);
+      handlePropertyChange("roleId", undefined);
+      handlePropertyChange("resourceId", undefined);
+      setSelectedRole(null);
+    },
+    [handlePropertyChange]
+  );
+
   useEffect(() => {
     if (currentTask.allocationType) {
       setAllocationType(currentTask.allocationType);
@@ -92,7 +127,7 @@ const TaskPropertiesPanel = ({
         isShared: currentTask.isShared || false,
       });
     }
-  }, [currentTask]);
+  }, [currentTask?.id]);
 
   console.log("Current Task:", currentTask);
   console.log("Selected Role:", selectedRole);
@@ -115,14 +150,6 @@ const TaskPropertiesPanel = ({
       default:
         return undefined;
     }
-  };
-
-  const handleAllocationTypeChange = (value) => {
-    setAllocationType(value);
-
-    handlePropertyChange("roleId", undefined);
-    handlePropertyChange("resourceId", undefined);
-    setSelectedRole(null);
   };
 
   const isResourceAvailable = (resourceId, excludeTaskId) => {
@@ -227,49 +254,6 @@ const TaskPropertiesPanel = ({
       };
     });
   }, [resources, taskProperties, selectedElement]);
-
-  const handlePropertyChange = (property, value) => {
-    if (!selectedElement) return;
-
-    const updatedTask = {
-      ...currentTask,
-      [property]: value,
-    };
-
-    if (property === "roleId") {
-      setSelectedRole(value);
-
-      updatedTask.resourceId = undefined;
-
-      if (allocationType === "n:n") {
-        updatedTask.roleResources = {};
-        if (Array.isArray(value)) {
-          value.forEach((roleId) => {
-            updatedTask.roleResources[roleId] = [];
-          });
-        }
-      }
-    }
-
-    if (property === "allocationType") {
-      setAllocationType(value);
-
-      updatedTask.roleId = undefined;
-      updatedTask.resourceId = undefined;
-      updatedTask.roleResources = {};
-    }
-
-    onTaskPropertiesChange(selectedElement.id, updatedTask);
-
-    document.dispatchEvent(
-      new CustomEvent("resourceAllocationUpdate", {
-        detail: {
-          taskId: selectedElement.id,
-          allocation: updatedTask,
-        },
-      })
-    );
-  };
 
   const handleRoleChange = (value) => {
     const updatedTask = {

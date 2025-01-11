@@ -1147,15 +1147,18 @@ const ChangePatternEditor = () => {
         ...taskData,
       });
 
-      if (selectedTaskForMonitor && selectedTaskForMonitor.id === taskId) {
-        setSelectedTaskForMonitor({
-          ...selectedTaskForMonitor,
-          businessObject: {
-            ...selectedTaskForMonitor.businessObject,
-            taskData: taskData,
-          },
-        });
-      }
+      setSelectedTaskForMonitor((prevTask) => {
+        if (prevTask?.id === taskId) {
+          return {
+            ...prevTask,
+            businessObject: {
+              ...prevTask.businessObject,
+              taskData: taskData,
+            },
+          };
+        }
+        return prevTask;
+      });
     };
 
     document.addEventListener(
@@ -1169,7 +1172,7 @@ const ChangePatternEditor = () => {
         handleResourceAllocationUpdate
       );
     };
-  }, [handleTaskOperation, selectedTaskForMonitor]);
+  }, [handleTaskOperation]);
 
   /** ====================== UI RENDERING ====================== **/
 

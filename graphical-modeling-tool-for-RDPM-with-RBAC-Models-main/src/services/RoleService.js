@@ -33,16 +33,24 @@ export class RoleService {
       const formattedData = {
         name: roleData.name,
         parent_role: roleData.parent_role || null,
-        permissions: roleData.permissions || [],
+        permissions: roleData.permissions.map((perm) => ({
+          resource: perm.resource,
+          actions: Array.isArray(perm.actions) ? perm.actions : [],
+        })),
         mutually_exclusive_roles: roleData.mutually_exclusive_roles || [],
-        max_members: roleData.max_members || null,
+        max_members:
+          roleData.max_members !== ""
+            ? parseInt(roleData.max_members, 10)
+            : null,
         inherit_child_permissions: roleData.inherit_child_permissions ?? true,
       };
 
       const response = await axios.post(`${BASE_URL}/roles`, formattedData);
       return response.data;
     } catch (error) {
-      console.error("Failed to create role:", error);
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
       throw error;
     }
   }

@@ -13,28 +13,44 @@ import { selectRoles } from "../store/roleSlice";
 import { selectPatterns } from "../store/patternSlice";
 import { message } from "antd";
 import { Badge, Button, Space } from "antd";
+import { ResourceService } from "../services/ResourceService";
 
 export const useResource = () => {
   const dispatch = useDispatch();
   const resources = useSelector(selectResources) || [];
 
   const handleAddResource = useCallback(
-    (newResource) => {
-      dispatch(addResource(newResource));
+    async (newResource) => {
+      try {
+        const response = await ResourceService.createResource(newResource);
+        dispatch(addResource(response.data));
+      } catch (error) {
+        message.error("Failed to add resource");
+      }
     },
     [dispatch]
   );
 
   const handleDeleteResource = useCallback(
-    (id) => {
-      dispatch(deleteResource(id));
+    async (name) => {
+      try {
+        await ResourceService.deleteResource(name);
+        dispatch(deleteResource(name));
+      } catch (error) {
+        message.error("Failed to delete resource");
+      }
     },
     [dispatch]
   );
 
   const handleStatusChange = useCallback(
-    (id, newStatus) => {
-      dispatch(updateResourceStatus({ id, status: newStatus }));
+    async (name, newStatus) => {
+      try {
+        await ResourceService.toggleResourceStatus(name);
+        dispatch(updateResourceStatus({ name, status: newStatus }));
+      } catch (error) {
+        message.error("Failed to update status");
+      }
     },
     [dispatch]
   );

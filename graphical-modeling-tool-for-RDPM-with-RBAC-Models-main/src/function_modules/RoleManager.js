@@ -28,12 +28,45 @@ const RoleManager = () => {
     buildRoleHierarchy,
   } = useRole();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!roleName.trim()) {
       message.error("Role name is required");
       return;
     }
-    handleAddOrEditRole();
+
+    try {
+      const roleData = {
+        name: roleName,
+        parent_role: parentRole || null,
+        permissions: permissions
+          ? permissions
+              .split(",")
+              .map((p) => p.trim())
+              .filter((p) => p)
+              .map((perm) => {
+                const [resource, ...actions] = perm.split(":");
+                return {
+                  resource,
+                  actions: actions.length > 0 ? actions[0].split(" ") : [],
+                };
+              })
+          : [],
+        mutually_exclusive_roles: mutuallyExclusiveRoles
+          ? mutuallyExclusiveRoles
+              .split(",")
+              .map((r) => r.trim())
+              .filter((r) => r)
+          : [],
+        max_members: maxMembers ? parseInt(maxMembers, 10) : null,
+        inherit_child_permissions: true,
+      };
+
+      await handleAddOrEditRole(roleData);
+      message.success(`${editMode ? "Updated" : "Created"} role successfully`);
+    } catch (error) {
+      message.error(error.response?.data?.detail || "Failed to submit role");
+      console.error(error);
+    }
   };
 
   const columns = [

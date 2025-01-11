@@ -13,9 +13,24 @@ const ResourceManager = () => {
 
   const [form] = Form.useForm();
 
+  const onFinish = async (values) => {
+    try {
+      const newResource = {
+        name: values.name,
+        status: "available",
+        description: values.description || null,
+      };
+
+      await handleAddResource(newResource);
+      form.resetFields();
+    } catch (error) {
+      console.error("Failed to add resource:", error);
+    }
+  };
+
   const columns = [
     {
-      title: "Resource Name",
+      title: "Name",
       dataIndex: "name",
       key: "name",
       width: "40%",
@@ -39,10 +54,10 @@ const ResourceManager = () => {
       render: (_, record) => (
         <Space>
           <Button
-            type="link"
+            type="primary"
             onClick={() =>
               handleStatusChange(
-                record.id,
+                record.name,
                 record.status === "available" ? "unavailable" : "available"
               )
             }
@@ -52,7 +67,7 @@ const ResourceManager = () => {
           <Button
             type="link"
             danger
-            onClick={() => handleDeleteResource(record.id)}
+            onClick={() => handleDeleteResource(record.name)}
           >
             Delete
           </Button>
@@ -60,18 +75,6 @@ const ResourceManager = () => {
       ),
     },
   ];
-
-  const onFinish = (values) => {
-    const newResource = {
-      id: Date.now().toString(),
-      name: values.name,
-      type: values.type,
-      status: "available",
-    };
-
-    handleAddResource(newResource);
-    form.resetFields();
-  };
 
   return (
     <div className="resource-manager">

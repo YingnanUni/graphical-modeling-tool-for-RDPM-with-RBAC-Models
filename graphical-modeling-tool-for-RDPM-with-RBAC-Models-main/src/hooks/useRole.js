@@ -8,6 +8,7 @@ import {
   deleteRole,
   selectRoles,
 } from "../store/roleSlice";
+import { RoleService } from "../services/RoleService";
 
 export const useRole = () => {
   // Initialize form and Redux hooks
@@ -74,75 +75,71 @@ export const useRole = () => {
   };
 
   // Handle adding or editing a role
-  const handleAddOrEditRole = useCallback(() => {
-    if (!roleName) {
-      message.error("Please enter role name");
-      return;
-    }
+  const handleAddOrEditRole = useCallback(
+    async (roleData) => {
+      try {
+        if (editMode) {
+          await RoleService.updateRole(selectedRole.name, roleData);
+          dispatch(updateRole({ id: selectedRole.id, changes: roleData }));
+          message.success("Role updated successfully");
+        } else {
+          const response = await RoleService.createRole(roleData);
+          dispatch(addRole({ ...roleData, id: response.id }));
+          message.success("Role added successfully");
+        }
 
-    const roleData = {
-      id: editMode ? selectedRole.id : Date.now().toString(),
-      name: roleName,
-      parent: parentRole,
-      permissions: permissions.split(",").map((p) => p.trim()),
-      constraints: {
-        mutuallyExclusive: mutuallyExclusiveRoles
-          .split(",")
-          .map((r) => r.trim()),
-        maxMembers: parseInt(maxMembers) || undefined,
-      },
-    };
-
-    if (editMode) {
-      dispatch(updateRole({ id: roleData.id, changes: roleData }));
-      message.success("Role updated successfully");
-    } else {
-      dispatch(addRole(roleData));
-      message.success("Role added successfully");
-    }
-
-    resetForm();
-  }, [
-    roleName,
-    parentRole,
-    permissions,
-    mutuallyExclusiveRoles,
-    maxMembers,
-    editMode,
-    selectedRole,
-    dispatch,
-    resetForm,
-  ]);
+        resetForm();
+      } catch (error) {
+        console.error("Failed to handle role:", error);
+        throw error;
+      }
+    },
+    [editMode, selectedRole, dispatch, resetForm]
+  );
 
   // Handle deleting a single role
   const handleDeleteRole = useCallback(
-    (roleNameOrId) => {
-      const roleToDelete = roles.find(
-        (role) => role.id === roleNameOrId || role.name === roleNameOrId
-      );
+    async (roleNameOrId) => {
+      try {
+        // Call backend API first
+        await RoleService.deleteRole(roleNameOrId);
 
-      if (roleToDelete) {
-        dispatch(deleteRole(roleToDelete.id));
-        message.success("Role deleted successfully");
-      } else {
-        message.error("Role not found");
+        // After successful API call, update Redux store
+        const roleToDelete = roles.find(
+          (role) => role.id === roleNameOrId || role.name === roleNameOrId
+        );
+
+        if (roleToDelete) {
+          dispatch(deleteRole(roleToDelete.id));
+          message.success("Role deleted successfully");
+        } else {
+          message.error("Role not found");
+        }
+      } catch (error) {
+        message.error(`Failed to delete: ${error.message}`);
       }
     },
     [dispatch, roles]
   );
 
   // Handle batch deletion of roles
-  const handleBatchDelete = useCallback(() => {
+  const handleBatchDelete = useCallback(async () => {
     if (selectedRows.length === 0) {
-      message.warning("Please select the roles to be deleted first");
+      message.warning("Please select roles to delete first");
       return;
     }
 
-    selectedRows.forEach((role) => {
-      dispatch(deleteRole(role.id));
-    });
-    message.success(`Successfully deleted ${selectedRows.length} roles`);
-    setSelectedRows([]);
+    try {
+      // Delete selected roles one by one
+      for (const role of selectedRows) {
+        await RoleService.deleteRole(role.name);
+        dispatch(deleteRole(role.id));
+      }
+      message.success(`Successfully deleted ${selectedRows.length} roles`);
+      setSelectedRows([]);
+    } catch (error) {
+      message.error(`Batch deletion failed: ${error.message}`);
+    }
   }, [selectedRows, dispatch]);
 
   // Handle editing an existing role

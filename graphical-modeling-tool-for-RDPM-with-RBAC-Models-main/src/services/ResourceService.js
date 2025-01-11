@@ -30,14 +30,7 @@ export class ResourceService {
   // Create new resource
   static async createResource(resourceData) {
     try {
-      // Format data according to backend Resource model
-      const formattedData = {
-        name: resourceData.name,
-        status: resourceData.status || "available",
-        description: resourceData.description || null,
-      };
-
-      const response = await axios.post(`${BASE_URL}/resources`, formattedData);
+      const response = await axios.post(`${BASE_URL}/resources`, resourceData);
       return response.data;
     } catch (error) {
       console.error("Failed to create resource:", error);
@@ -63,7 +56,7 @@ export class ResourceService {
   static async deleteResource(resourceName) {
     try {
       const response = await axios.delete(
-        `${BASE_URL}/delete-data/resources/${resourceName}`
+        `${BASE_URL}/resources/${encodeURIComponent(resourceName)}`
       );
       return response.data;
     } catch (error) {
