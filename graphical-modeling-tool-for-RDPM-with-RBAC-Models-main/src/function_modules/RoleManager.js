@@ -26,77 +26,89 @@ const RoleManager = () => {
     handleBatchDelete,
     openEditMode,
     buildRoleHierarchy,
+    inheritedPermissions,
+    getRolePermissions,
   } = useRole();
 
-  const handleSubmit = async () => {
-    if (!roleName.trim()) {
-      message.error("Role name is required");
-      return;
-    }
-
+  const handleSubmit = async (values) => {
     try {
       const roleData = {
         name: roleName,
-        parent_role: parentRole || null,
+        parent_role: parentRole,
         permissions: permissions
-          ? permissions
-              .split(",")
-              .map((p) => p.trim())
-              .filter((p) => p)
-              .map((perm) => {
-                const [resource, ...actions] = perm.split(":");
-                return {
-                  resource,
-                  actions: actions.length > 0 ? actions[0].split(" ") : [],
-                };
-              })
+          ? permissions.split(",").map((perm) => ({
+              resource: perm.trim(),
+            }))
           : [],
         mutually_exclusive_roles: mutuallyExclusiveRoles
-          ? mutuallyExclusiveRoles
-              .split(",")
-              .map((r) => r.trim())
-              .filter((r) => r)
+          ? mutuallyExclusiveRoles.split(",").map((role) => role.trim())
           : [],
-        max_members: maxMembers ? parseInt(maxMembers, 10) : null,
-        inherit_child_permissions: true,
+        max_members: maxMembers || null,
       };
 
       await handleAddOrEditRole(roleData);
-      message.success(`${editMode ? "Updated" : "Created"} role successfully`);
+      form.resetFields();
     } catch (error) {
-      message.error(error.response?.data?.detail || "Failed to submit role");
-      console.error(error);
+      console.error("Failed to submit:", error);
+      message.error("Failed to create role: " + error.message);
     }
   };
 
   const columns = [
-    { title: "Role Name", dataIndex: "name", key: "name" },
+    {
+      title: "Role Name",
+      dataIndex: "name",
+      key: "name",
+    },
     {
       title: "Superior Role",
-      dataIndex: "parent",
-      key: "parent",
+      dataIndex: "parent_role",
+      key: "parent_role",
       render: (text) => text || "None",
     },
     {
       title: "Permissions",
       key: "permissions",
-      render: (_, record) => record.permissions?.join(", ") || "None",
+      render: (_, record) => {
+        const permissions = getRolePermissions(record.name);
+
+        return (
+          <div>
+            {permissions.direct.length > 0 && (
+              <div>
+                <strong>Direct:</strong>{" "}
+                {permissions.direct
+                  .map(
+                    (perm) =>
+                      `${perm.resource}${perm.is_private ? " (private)" : ""}`
+                  )
+                  .join(", ")}
+              </div>
+            )}
+            {permissions.inherited.length > 0 && (
+              <div>
+                <strong>Inherited:</strong>{" "}
+                {permissions.inherited.map((perm) => perm.resource).join(", ")}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Constraints",
       key: "constraints",
-      render: (_, record) => {
-        const constraints = record.constraints || {};
-        const mutuallyExclusiveRoles =
-          constraints.mutuallyExclusiveRoles?.join(", ") || "None";
-        const maxMembers = constraints.maxMembers || "None";
-        return (
-          <div>
-            <p>Mutually exclusive roles: {mutuallyExclusiveRoles}</p>
-            <p>Max Members: {maxMembers}</p>
-          </div>
-        );
-      },
+      render: (_, record) => (
+        <div>
+          <p>
+            Mutually exclusive roles:{" "}
+            {record.mutually_exclusive_roles?.length > 0
+              ? record.mutually_exclusive_roles.join(", ")
+              : "None"}
+          </p>
+          <p>Max Members: {record.max_members || "None"}</p>
+        </div>
+      ),
     },
     {
       title: "Actions",
@@ -106,7 +118,11 @@ const RoleManager = () => {
           <Button type="link" onClick={() => openEditMode(record)}>
             Edit
           </Button>
-          <Button type="link" onClick={() => handleDeleteRole(record.name)}>
+          <Button
+            type="link"
+            danger
+            onClick={() => handleDeleteRole(record.name)}
+          >
             Delete
           </Button>
         </>
@@ -162,9 +178,9 @@ const RoleManager = () => {
         allowClear
       >
         {roles
-          .filter((role) => role?.name)
+          .filter((role) => role?.name && role.name !== roleName)
           .map((role) => (
-            <Option key={role.name} value={role.name}>
+            <Option key={role.id || `role_${role.name}`} value={role.name}>
               {role.name}
             </Option>
           ))}
@@ -202,8 +218,13 @@ const RoleManager = () => {
         Batch deletion
       </Button>
 
-      <h3 style={{ marginTop: "20px" }}>hierarchy of roles</h3>
-      <Tree treeData={buildRoleHierarchy()} defaultExpandAll />
+      <h3 style={{ marginTop: "20px" }}>Hierarchy of Roles</h3>
+      <Tree
+        showLine
+        defaultExpandAll
+        treeData={buildRoleHierarchy()}
+        style={{ marginBottom: "20px" }}
+      />
 
       <h3 style={{ marginTop: "20px" }}>Role List</h3>
       <Table
@@ -211,9 +232,11 @@ const RoleManager = () => {
           type: "checkbox",
           onChange: (_, selectedRows) => setSelectedRows(selectedRows),
         }}
-        dataSource={roles}
+        dataSource={roles.map((role) => ({
+          ...role,
+          key: role.id || `role_${role.name}`,
+        }))}
         columns={columns}
-        rowKey="name"
         pagination={false}
       />
     </div>

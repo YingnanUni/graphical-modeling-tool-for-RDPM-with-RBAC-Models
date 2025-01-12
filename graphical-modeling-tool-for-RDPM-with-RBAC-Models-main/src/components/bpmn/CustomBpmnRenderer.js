@@ -178,28 +178,75 @@ export class CustomBpmnRenderer extends BaseRenderer {
     this.bpmnFactory = null;
     this.modeler = null;
 
-    // 修改初始化服务的方式
+    // a one-step procedure for obtaining the BPMN.js core dependency injector, and injector is a generic interface for dynamically accessing BPMN.js internal services.
+    const injector = eventBus._injector;
+
+    if (injector) {
+      try {
+        // Service for diagram manipulation
+        this.modeling = injector.get("modeling");
+        // Factory for creating BPMN elements
+        this.bpmnFactory = injector.get("bpmnFactory");
+        //  Service for the modeler
+        this.modeler = injector.get("modeler");
+      } catch (e) {
+        console.warn("Initial service injection failed, will try later:", e);
+      }
+    }
+
+    // potential problem
     this.initializeServices = () => {
       return new Promise((resolve) => {
-        const injector = this.eventBus._injector;
-        if (!injector) {
-          resolve(false);
+        if (this.modeling && this.bpmnFactory) {
+          resolve(true);
           return;
         }
 
-        try {
-          this.modeling = injector.get("modeling");
-          this.bpmnFactory = injector.get("bpmnFactory");
-          this.modeler = injector.get("modeler");
-          resolve(true);
-        } catch (e) {
-          console.warn("Service injection failed:", e);
-          resolve(false);
-        }
+        const tryGetServices = () => {
+          try {
+            const injector = this.eventBus._injector;
+            if (!injector) return false;
+
+            const modeling = injector.get("modeling");
+            const bpmnFactory = injector.get("bpmnFactory");
+            const modeler = injector.get("modeler");
+
+            if (modeling && bpmnFactory) {
+              this.modeling = modeling;
+              this.bpmnFactory = bpmnFactory;
+              this.modeler = modeler;
+              return true;
+            }
+            return false;
+          } catch (e) {
+            console.warn("Service injection attempt failed:", e);
+            return false;
+          }
+        };
+
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        const checkServices = () => {
+          if (tryGetServices()) {
+            resolve(true);
+            return;
+          }
+
+          attempts++;
+          if (attempts >= maxAttempts) {
+            console.error("Failed to initialize BPMN services");
+            resolve(false);
+            return;
+          }
+
+          setTimeout(checkServices, 1000);
+        };
+
+        checkServices();
       });
     };
 
-    // 修改服务检查的方式
     let retryCount = 0;
     const maxRetries = 3;
 
@@ -218,10 +265,8 @@ export class CustomBpmnRenderer extends BaseRenderer {
       }
     };
 
-    // 初始化时执行一次
     checkServices();
 
-    // 监听模型就绪事件
     eventBus.on("modeler.ready", () => {
       this.initializeServices();
     });

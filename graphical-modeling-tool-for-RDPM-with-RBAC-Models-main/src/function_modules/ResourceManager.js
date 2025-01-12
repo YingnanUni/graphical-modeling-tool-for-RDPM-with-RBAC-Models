@@ -99,8 +99,14 @@ const ResourceManager = () => {
       <Card title="Resource List">
         <Table
           columns={columns}
-          dataSource={Array.isArray(resources) ? resources : []}
-          rowKey="id"
+          dataSource={
+            Array.isArray(resources)
+              ? resources.map((resource) => ({
+                  ...resource,
+                  key: resource.name,
+                }))
+              : []
+          }
           pagination={false}
         />
       </Card>

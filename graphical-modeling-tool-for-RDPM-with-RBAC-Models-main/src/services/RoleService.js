@@ -33,16 +33,17 @@ export class RoleService {
       const formattedData = {
         name: roleData.name,
         parent_role: roleData.parent_role || null,
-        permissions: roleData.permissions.map((perm) => ({
+        permissions: (roleData.permissions || []).map((perm) => ({
           resource: perm.resource,
           actions: Array.isArray(perm.actions) ? perm.actions : [],
+          is_private: perm.is_private || false,
         })),
         mutually_exclusive_roles: roleData.mutually_exclusive_roles || [],
         max_members:
           roleData.max_members !== ""
             ? parseInt(roleData.max_members, 10)
             : null,
-        inherit_child_permissions: roleData.inherit_child_permissions ?? true,
+        inherit_permissions: roleData.inherit_permissions ?? true,
       };
 
       const response = await axios.post(`${BASE_URL}/roles`, formattedData);
@@ -100,6 +101,19 @@ export class RoleService {
       return response.data;
     } catch (error) {
       console.error("Failed to fetch role permissions:", error);
+      throw error;
+    }
+  }
+
+  // Add new method to get inherited permissions
+  static async getInheritedPermissions(roleName) {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/roles/${roleName}/inherited-permissions`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch inherited permissions:", error);
       throw error;
     }
   }
