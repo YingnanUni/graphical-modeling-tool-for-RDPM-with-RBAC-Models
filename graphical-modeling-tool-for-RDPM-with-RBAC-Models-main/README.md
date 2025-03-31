@@ -1,70 +1,105 @@
-# Getting Started with Create React App
+# Role Resource Management System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based role and resource management system for managing organizational roles, resource allocation, and task workflows.
 
-## Available Scripts
+## Key Features
 
-In the project directory, you can run:
+### Role Management
+- Create, edit and delete roles
+- Set role hierarchies
+- Manage role permissions
+- Configure mutually exclusive roles 
+- Batch operations
 
-### `npm start`
+### Resource Management
+- Add, edit and delete resources
+- Resource status management (available/occupied)
+- Resource allocation tracking
+- Shared resource support
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Task Workflow Management
+- Visual BPMN task flow editor
+- Support for sequential and parallel task modes
+- Task property configuration
+- Resource allocation validation
+- Real-time task monitoring
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Pattern Management
+- Predefined task templates
+- Custom task patterns
+- Pattern import/export
+- Pattern validation
 
-### `npm test`
+## Tech Stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- React
+- Redux Toolkit
+- Ant Design
+- BPMN.js
+- Axios
 
-### `npm run build`
+## Installation
+bash
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+# Install dependencies
+npm install
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Start development server
+npm start
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-### `npm run eject`
+## API Service
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+The project requires backend API support, default API address: http://127.0.0.1:8000
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Core Features
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+1. Role-Based Access Control (RBAC)
+2. Flexible resource allocation mechanism
+3. Visual task workflow management
+4. Real-time status monitoring
+5. Comprehensive data validation
+6. Responsive design
 
-## Learn More
+## Usage Guide
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. First create required roles in the "Role Management" tab
+2. Add available resources in the "Resource Management" tab
+3. Use the "Change Pattern" feature to create task workflows
+4. Assign roles and resources to tasks
+5. Use the task tree monitor to track task status
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Key Components
 
-### Code Splitting
+### ChangePatternEditor
+- BPMN-based graphical workflow editor
+- Task property management
+- Resource allocation interface
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### TaskTreeMonitor
+- Real-time task chain monitoring
+- Resource allocation visualization
+- Status tracking
 
-### Analyzing the Bundle Size
+### RoleManager
+- Role hierarchy management
+- Permission configuration
+- Role-resource relationship management
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### ResourceManager
+- Resource status management
+- Resource allocation tracking
+- Availability monitoring
 
-### Making a Progressive Web App
+## State Management
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+The application uses Redux Toolkit for state management with the following main slices:
+- roleSlice: Role management
+- resourceSlice: Resource management
+- patternSlice: Pattern management
+- roleResourceSlice: Role-resource relationships
 
-### Advanced Configuration
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
 
-### Deployment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
